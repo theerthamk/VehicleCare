@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1746b0">
+  <title>Notifications · VehicleCare</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <main class="content" id="content" hidden>
+        <div class="page-head">
+          <div>
+            <h1>Notifications</h1>
+            <p>Maintenance reminders and updates on your tasks and requests.</p>
+          </div>
+          <button type="button" class="btn btn-secondary" id="readAllBtn" data-icon="check">Mark all as read</button>
+        </div>
+        <div class="toolbar">
+          <div class="tabs" id="filterTabs">
+            <button type="button" class="tab active" data-unread="">All</button>
+            <button type="button" class="tab" data-unread="1">Unread</button>
+          </div>
+        </div>
+        <section class="card" id="list"><div class="loading">Loading…</div></section>
+      </main>
+    </div>
+  </div>
+  <script src="/js/api.js"></script>
+  <script src="/js/app.js"></script>
+  <script src="/js/notifications.js"></script>
+</body>
+</html>

@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1746b0">
+  <title>Services · VehicleCare</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <main class="content" id="content" hidden>
+        <div class="page-head">
+          <div>
+            <h1 id="pageHeading">Service Providers</h1>
+            <p id="pageIntro">Find a caretaker and request a service for one of your vehicles.</p>
+          </div>
+        </div>
+
+        <!-- Owner: provider directory -->
+        <section id="providerSection" class="hidden" style="margin-bottom:28px">
+          <div class="toolbar">
+            <h2 class="grow">Caretakers &amp; service providers</h2>
+            <label class="search"><span class="sr-only">Search providers</span><span id="searchIcon"></span>
+              <input type="search" id="providerSearch" placeholder="Search by name, city or skill"></label>
+          </div>
+          <div class="grid grid-3" id="providerGrid"><div class="loading">Loading…</div></div>
+        </section>
+
+        <!-- Both roles: requests -->
+        <section>
+          <div class="toolbar">
+            <h2 class="grow" id="requestsHeading">My service requests</h2>
+            <div class="tabs" id="requestTabs">
+              <button type="button" class="tab active" data-status="all">All</button>
+              <button type="button" class="tab" data-status="pending">Pending</button>
+              <button type="button" class="tab" data-status="accepted">Accepted</button>
+              <button type="button" class="tab" data-status="completed">Completed</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="table-wrap" id="requestTable"><div class="loading">Loading…</div></div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- Owner: create request -->
+  <dialog id="requestDialog" aria-labelledby="requestDialogTitle">
+    <form id="requestForm">
+      <div class="dialog-head">
+        <h2 id="requestDialogTitle">Request a service</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Close" data-icon="x"></button>
+      </div>
+      <div class="dialog-body">
+        <div class="form-alert" role="alert"></div>
+        <div class="form-grid">
+          <div class="field full">
+            <label for="sProvider">Service provider <span class="req">*</span></label>
+            <select id="sProvider" name="provider_id" required></select>
+            <div class="field-error"></div>
+          </div>
+          <div class="field full">
+            <label for="sVehicle">Vehicle <span class="req">*</span></label>
+            <select id="sVehicle" name="vehicle_id" required></select>
+            <div class="field-error"></div>
+          </div>
+          <div class="field">
+            <label for="sType">Service needed <span class="req">*</span></label>
+            <input id="sType" name="service_type" required minlength="3" maxlength="100" list="serviceIdeas" placeholder="e.g. Battery charging">
+            <datalist id="serviceIdeas">
+              <option value="Battery charging">
+              <option value="Engine start and short drive">
+              <option value="Tyre pressure check">
+              <option value="Wash and cover">
+              <option value="Brake inspection">
+              <option value="Rodent and wiring check">
+              <option value="General inspection">
+            </datalist>
+            <div class="field-error"></div>
+          </div>
+          <div class="field">
+            <label for="sDate">Preferred date</label>
+            <input id="sDate" name="preferred_date" type="date">
+            <div class="field-error"></div>
+          </div>
+          <div class="field full">
+            <label for="sDetails">Details</label>
+            <textarea id="sDetails" name="details" maxlength="1000" placeholder="Where is the vehicle, who has the keys, anything to watch out for?"></textarea>
+            <div class="field-error"></div>
+          </div>
+        </div>
+      </div>
+      <div class="dialog-foot">
+        <button type="button" class="btn btn-ghost" data-close>Cancel</button>
+        <button type="submit" class="btn btn-primary">Send request</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Caretaker: respond to request -->
+  <dialog id="respondDialog" class="small" aria-labelledby="respondTitle">
+    <form id="respondForm">
+      <div class="dialog-head">
+        <h2 id="respondTitle">Respond to request</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Close" data-icon="x"></button>
+      </div>
+      <div class="dialog-body">
+        <div class="form-alert" role="alert"></div>
+        <p id="respondSummary" class="small"></p>
+        <input type="hidden" name="request_id">
+        <input type="hidden" name="status">
+        <div class="field">
+          <label for="respondNote">Note to the owner</label>
+          <textarea id="respondNote" name="provider_note" maxlength="500" placeholder="Optional"></textarea>
+          <div class="field-error"></div>
+        </div>
+      </div>
+      <div class="dialog-foot">
+        <button type="button" class="btn btn-ghost" data-close>Back</button>
+        <button type="submit" class="btn btn-primary" id="respondSubmit">Accept</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/app.js"></script>
+  <script src="/js/services.js"></script>
+</body>
+</html>

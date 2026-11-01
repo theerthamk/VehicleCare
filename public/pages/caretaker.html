@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1746b0">
+  <title>Dashboard · VehicleCare</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body data-role-page="caretaker">
+  <div class="layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <main class="content" id="content" hidden>
+        <div class="page-head">
+          <div>
+            <h1 id="greeting">Dashboard</h1>
+            <p>Your assigned work and new service requests.</p>
+          </div>
+          <div class="actions">
+            <a class="btn btn-secondary" href="/pages/services.html" data-icon="handshake">Service requests</a>
+            <a class="btn btn-primary" href="/pages/maintenance.html" data-icon="clipboard">My tasks</a>
+          </div>
+        </div>
+        <div class="stats" id="stats"><div class="loading">Loading…</div></div>
+        <div class="grid grid-2">
+          <section class="card">
+            <div class="card-head"><h2>Next tasks</h2><a href="/pages/maintenance.html" class="small">View all</a></div>
+            <div id="upcoming"><div class="loading">Loading…</div></div>
+          </section>
+          <section class="card">
+            <div class="card-head"><h2>At a glance</h2></div>
+            <div id="glance"><div class="loading">Loading…</div></div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+  <script src="/js/api.js"></script>
+  <script src="/js/app.js"></script>
+  <script src="/js/dashboard.js"></script>
+</body>
+</html>

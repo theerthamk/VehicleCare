@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1746b0">
+  <title>Maintenance · VehicleCare</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <main class="content" id="content" hidden>
+        <div class="page-head">
+          <div>
+            <h1 id="pageHeading">Maintenance</h1>
+            <p id="pageIntro">Plan work, assign caretakers and record what was done.</p>
+          </div>
+          <button type="button" class="btn btn-primary hidden" id="newTaskBtn" data-icon="plus">New task</button>
+        </div>
+
+        <div class="toolbar">
+          <div class="tabs" id="statusTabs">
+            <button type="button" class="tab active" data-status="open">Open</button>
+            <button type="button" class="tab" data-status="overdue">Overdue</button>
+            <button type="button" class="tab" data-status="completed">Completed</button>
+            <button type="button" class="tab" data-status="cancelled">Cancelled</button>
+            <button type="button" class="tab" data-status="all">All</button>
+          </div>
+          <div class="grow"></div>
+          <label class="sr-only" for="vehicleFilter">Filter by vehicle</label>
+          <select id="vehicleFilter" style="max-width:280px">
+            <option value="">All vehicles</option>
+          </select>
+        </div>
+
+        <section class="card">
+          <div class="table-wrap" id="taskTable"><div class="loading">Loading…</div></div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- Create / edit task (owner) -->
+  <dialog id="taskDialog" aria-labelledby="taskDialogTitle">
+    <form id="taskForm">
+      <div class="dialog-head">
+        <h2 id="taskDialogTitle">New maintenance task</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Close" data-icon="x"></button>
+      </div>
+      <div class="dialog-body">
+        <div class="form-alert" role="alert"></div>
+        <input type="hidden" name="id">
+        <div class="form-grid">
+          <div class="field full">
+            <label for="tVehicle">Vehicle <span class="req">*</span></label>
+            <select id="tVehicle" name="vehicle_id" required></select>
+            <div class="field-error"></div>
+          </div>
+          <div class="field full">
+            <label for="tTitle">Task <span class="req">*</span></label>
+            <input id="tTitle" name="title" required minlength="3" maxlength="120" list="taskIdeas" placeholder="e.g. Start engine and run 15 minutes">
+            <datalist id="taskIdeas">
+              <option value="Start engine and run 15 minutes">
+              <option value="Check tyre pressure">
+              <option value="Battery health test">
+              <option value="Wash and cover">
+              <option value="Rodent and wiring check">
+              <option value="Top up coolant and washer fluid">
+              <option value="Engine oil change">
+              <option value="Renew insurance">
+              <option value="Pollution certificate renewal">
+            </datalist>
+            <div class="field-error"></div>
+          </div>
+          <div class="field">
+            <label for="tDue">Due date <span class="req">*</span></label>
+            <input id="tDue" name="due_date" type="date" required>
+            <div class="field-error"></div>
+          </div>
+          <div class="field">
+            <label for="tPriority">Priority <span class="req">*</span></label>
+            <select id="tPriority" name="priority" required>
+              <option value="low">Low</option>
+              <option value="medium" selected>Medium</option>
+              <option value="high">High</option>
+            </select>
+            <div class="field-error"></div>
+          </div>
+          <div class="field full">
+            <label for="tAssignee">Assign to caretaker</label>
+            <select id="tAssignee" name="assigned_to">
+              <option value="">I will do it myself</option>
+            </select>
+            <div class="hint">The caretaker is notified and can record the work.</div>
+            <div class="field-error"></div>
+          </div>
+          <div class="field full">
+            <label for="tDesc">Instructions</label>
+            <textarea id="tDesc" name="description" maxlength="1000" placeholder="What should be checked or done?"></textarea>
+            <div class="field-error"></div>
+          </div>
+        </div>
+      </div>
+      <div class="dialog-foot">
+        <button type="button" class="btn btn-ghost" data-close>Cancel</button>
+        <button type="submit" class="btn btn-primary">Save task</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Task details -->
+  <dialog id="detailDialog" aria-labelledby="detailTitle">
+    <div class="dialog-head">
+      <h2 id="detailTitle">Task</h2>
+      <button type="button" class="icon-btn" data-close aria-label="Close" data-icon="x"></button>
+    </div>
+    <div class="dialog-body" id="detailBody"></div>
+    <div class="dialog-foot" id="detailActions"></div>
+  </dialog>
+
+  <!-- Record inspection / completion -->
+  <dialog id="recordDialog" aria-labelledby="recordDialogTitle">
+    <form id="recordForm">
+      <div class="dialog-head">
+        <h2 id="recordDialogTitle">Record work</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Close" data-icon="x"></button>
+      </div>
+      <div class="dialog-body">
+        <div class="form-alert" role="alert"></div>
+        <p class="muted" id="recordTaskName"></p>
+        <input type="hidden" name="task_id">
+        <div class="form-grid">
+          <div class="field">
+            <label for="rType">Type <span class="req">*</span></label>
+            <select id="rType" name="record_type" required>
+              <option value="inspection">Inspection</option>
+              <option value="maintenance">Maintenance work</option>
+            </select>
+            <div class="field-error"></div>
+          </div>
+          <div class="field">
+            <label for="rDate">Date <span class="req">*</span></label>
+            <input id="rDate" name="service_date" type="date" required>
+            <div class="field-error"></div>
+          </div>
+          <div class="field">
+            <label for="rCost">Cost (₹)</label>
+            <input id="rCost" name="cost" type="number" min="0" step="0.01" placeholder="0.00">
+            <div class="field-error"></div>
+          </div>
+          <div class="field" style="justify-content:flex-end">
+            <label class="check"><input type="checkbox" name="mark_complete" id="rComplete"> Mark the task as completed</label>
+          </div>
+          <div class="field full">
+            <label for="rNotes">Notes</label>
+            <textarea id="rNotes" name="notes" maxlength="1000" placeholder="What did you check or do? Any problems found?"></textarea>
+            <div class="field-error"></div>
+          </div>
+        </div>
+      </div>
+      <div class="dialog-foot">
+        <button type="button" class="btn btn-ghost" data-close>Cancel</button>
+        <button type="submit" class="btn btn-primary">Save record</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/app.js"></script>
+  <script src="/js/maintenance.js"></script>
+</body>
+</html>

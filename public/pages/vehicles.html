@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1746b0">
+  <title>Vehicles · VehicleCare</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <main class="content" id="content" hidden>
+        <div class="page-head">
+          <div>
+            <h1 id="pageHeading">Vehicles</h1>
+            <p id="pageIntro">Vehicles, where they are parked and what they need.</p>
+          </div>
+          <button type="button" class="btn btn-primary hidden" id="addVehicleBtn" data-icon="plus">Add vehicle</button>
+        </div>
+
+        <div class="toolbar">
+          <div class="tabs" id="statusTabs">
+            <button type="button" class="tab active" data-status="">All</button>
+            <button type="button" class="tab" data-status="parked">Parked</button>
+            <button type="button" class="tab" data-status="stored">Stored</button>
+            <button type="button" class="tab" data-status="in_service">In service</button>
+            <button type="button" class="tab" data-status="active">Active</button>
+          </div>
+          <div class="grow"></div>
+          <label class="search"><span class="sr-only">Search vehicles</span><span id="searchIcon"></span>
+            <input type="search" id="search" placeholder="Search make, model or registration"></label>
+        </div>
+
+        <section class="card">
+          <div class="table-wrap" id="vehicleTable"><div class="loading">Loading…</div></div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <dialog id="vehicleDialog" aria-labelledby="vehicleDialogTitle">
+    <form id="vehicleForm">
+      <div class="dialog-head">
+        <h2 id="vehicleDialogTitle">Add vehicle</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Close" data-icon="x"></button>
+      </div>
+      <div class="dialog-body">
+        <div class="form-alert" role="alert"></div>
+        <input type="hidden" name="id">
+        <div class="form-grid">
+          <div class="field">
+            <label for="vMake">Make <span class="req">*</span></label>
+            <input id="vMake" name="make" required maxlength="60" placeholder="e.g. Maruti Suzuki">
+            <div class="field-error"></div>
+          </div>
+          <div class="field">
+            <label for="vModel">Model <span class="req">*</span></label>
+            <input id="vModel" name="model" required maxlength="60" placeholder="e.g. Swift">
+            <div class="field-error"></div>
+          </div>
+          <div class="field">
+            <label for="vReg">Registration number <span class="req">*</span></label>
+            <input id="vReg" name="registration_number" required minlength="2" maxlength="20" placeholder="KL-01-AB-1234">
+            <div class="field-error"></div>
+          </div>
+          <div class="field">
+            <label for="vYear">Year</label>
+            <input id="vYear" name="year" type="number" min="1900" step="1" placeholder="2020">
+            <div class="field-error"></div>
+          </div>
+          <div class="field">
+            <label for="vType">Vehicle type <span class="req">*</span></label>
+            <select id="vType" name="vehicle_type" required>
+              <option value="car">Car</option>
+              <option value="motorcycle">Motorcycle</option>
+              <option value="scooter">Scooter</option>
+              <option value="truck">Truck</option>
+              <option value="van">Van</option>
+              <option value="other">Other</option>
+            </select>
+            <div class="field-error"></div>
+          </div>
+          <div class="field">
+            <label for="vStatus">Status <span class="req">*</span></label>
+            <select id="vStatus" name="status" required>
+              <option value="parked">Parked (not in use)</option>
+              <option value="stored">Stored long-term</option>
+              <option value="in_service">In service / workshop</option>
+              <option value="active">Active (in regular use)</option>
+            </select>
+            <div class="field-error"></div>
+          </div>
+          <div class="field">
+            <label for="vParked">Parked since</label>
+            <input id="vParked" name="parked_since" type="date">
+            <div class="hint">Defaults to today for parked or stored vehicles.</div>
+            <div class="field-error"></div>
+          </div>
+          <div class="field">
+            <label for="vLocation">Location</label>
+            <input id="vLocation" name="location" maxlength="150" placeholder="Home garage, basement P2…">
+            <div class="field-error"></div>
+          </div>
+          <div class="field full">
+            <label for="vNotes">Notes</label>
+            <textarea id="vNotes" name="notes" maxlength="500" placeholder="Keys with neighbour, cover in boot…"></textarea>
+            <div class="field-error"></div>
+          </div>
+        </div>
+      </div>
+      <div class="dialog-foot">
+        <button type="button" class="btn btn-ghost" data-close>Cancel</button>
+        <button type="submit" class="btn btn-primary">Save vehicle</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/app.js"></script>
+  <script src="/js/vehicles.js"></script>
+</body>
+</html>

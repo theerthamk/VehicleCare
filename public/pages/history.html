@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1746b0">
+  <title>History · VehicleCare</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <main class="content" id="content" hidden>
+        <div class="page-head">
+          <div>
+            <h1 id="pageHeading">History &amp; Expenses</h1>
+            <p id="pageIntro">Every inspection and maintenance job, with what it cost.</p>
+          </div>
+        </div>
+
+        <form class="toolbar" id="filterForm">
+          <label class="sr-only" for="fVehicle">Vehicle</label>
+          <select id="fVehicle" name="vehicle_id" style="max-width:280px"><option value="">All vehicles</option></select>
+          <label class="sr-only" for="fFrom">From</label>
+          <input type="date" id="fFrom" name="from" style="max-width:170px" title="From date">
+          <label class="sr-only" for="fTo">To</label>
+          <input type="date" id="fTo" name="to" style="max-width:170px" title="To date">
+          <button type="submit" class="btn btn-secondary">Apply</button>
+          <button type="button" class="btn btn-ghost" id="resetFilters">Reset</button>
+        </form>
+
+        <div class="stats" id="summary" style="grid-template-columns:repeat(3,minmax(0,1fr))"></div>
+
+        <div class="grid grid-2" style="margin-bottom:22px">
+          <section class="card">
+            <div class="card-head"><h2 id="byVehicleHeading">Cost by vehicle</h2></div>
+            <div class="table-wrap" id="byVehicle"><div class="loading">Loading…</div></div>
+          </section>
+          <section class="card">
+            <div class="card-head"><h2>Last 12 months</h2></div>
+            <div class="card-body" id="byMonth"><div class="loading">Loading…</div></div>
+          </section>
+        </div>
+
+        <section class="card">
+          <div class="card-head"><h2>Records</h2></div>
+          <div class="table-wrap" id="records"><div class="loading">Loading…</div></div>
+        </section>
+      </main>
+    </div>
+  </div>
+  <script src="/js/api.js"></script>
+  <script src="/js/app.js"></script>
+  <script src="/js/history.js"></script>
+</body>
+</html>

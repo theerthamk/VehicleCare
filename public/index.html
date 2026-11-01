@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="VehicleCare - look after parked and unused vehicles and coordinate their maintenance.">
+  <meta name="theme-color" content="#1746b0">
+  <title>VehicleCare · Sign in</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <div class="auth-page">
+    <section class="auth-hero">
+      <div>
+        <div class="brand"><span class="brand-mark" id="brandMark"></span>VehicleCare</div>
+      </div>
+      <div>
+        <h1>Parked vehicles, looked after.</h1>
+        <p>Track cars and bikes that sit unused, plan their maintenance, and hand the work to a trusted caretaker — all in one place.</p>
+        <ul class="feature-list">
+          <li data-icon="parking"><div><strong>Know how long each vehicle has been parked</strong><br>Status, location and service history for every vehicle you own.</div></li>
+          <li data-icon="calendar"><div><strong>Never miss a battery start or tyre check</strong><br>Due dates, priorities and automatic reminders.</div></li>
+          <li data-icon="handshake"><div><strong>Work with caretakers</strong><br>Request a service, follow progress and see notes and costs when it is done.</div></li>
+        </ul>
+      </div>
+      <p class="small" style="margin:0;opacity:.7">MCA project demo · Node.js · Express · MySQL · PWA</p>
+    </section>
+
+    <section class="auth-panel">
+      <div class="auth-box">
+        <h2 id="authTitle">Welcome back</h2>
+        <p class="muted" id="authSubtitle">Sign in to manage your vehicles or assigned work.</p>
+
+        <div class="tabs" role="tablist">
+          <button type="button" class="tab active" role="tab" id="tabLogin" aria-selected="true" aria-controls="loginForm">Sign in</button>
+          <button type="button" class="tab" role="tab" id="tabRegister" aria-selected="false" aria-controls="registerForm">Create account</button>
+        </div>
+
+        <form id="loginForm" role="tabpanel" aria-labelledby="tabLogin">
+          <div class="form-alert" role="alert"></div>
+          <div class="field">
+            <label for="loginEmail">Email</label>
+            <input id="loginEmail" name="email" type="email" autocomplete="email" required>
+            <div class="field-error"></div>
+          </div>
+          <div class="field">
+            <label for="loginPassword">Password</label>
+            <input id="loginPassword" name="password" type="password" autocomplete="current-password" required>
+            <div class="field-error"></div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Sign in</button>
+        </form>
+
+        <form id="registerForm" role="tabpanel" aria-labelledby="tabRegister" hidden>
+          <div class="form-alert" role="alert"></div>
+          <div class="field">
+            <span class="sr-only" id="roleLabel">I am a</span>
+            <div class="role-pick" role="radiogroup" aria-labelledby="roleLabel">
+              <div class="role-option">
+                <input type="radio" name="role" id="roleOwner" value="owner" checked>
+                <label for="roleOwner">Vehicle owner<span>I own vehicles that need looking after</span></label>
+              </div>
+              <div class="role-option">
+                <input type="radio" name="role" id="roleCaretaker" value="caretaker">
+                <label for="roleCaretaker">Caretaker<span>I maintain or service vehicles</span></label>
+              </div>
+            </div>
+            <div class="field-error"></div>
+          </div>
+          <div class="field">
+            <label for="regName">Full name</label>
+            <input id="regName" name="full_name" autocomplete="name" required minlength="2" maxlength="100">
+            <div class="field-error"></div>
+          </div>
+          <div class="field">
+            <label for="regEmail">Email</label>
+            <input id="regEmail" name="email" type="email" autocomplete="email" required maxlength="150">
+            <div class="field-error"></div>
+          </div>
+          <div class="field">
+            <label for="regPassword">Password</label>
+            <input id="regPassword" name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="72">
+            <div class="hint">At least 8 characters with a letter and a number.</div>
+            <div class="field-error"></div>
+          </div>
+          <div class="field">
+            <label for="regConfirm">Confirm password</label>
+            <input id="regConfirm" name="confirm_password" type="password" autocomplete="new-password" required>
+            <div class="field-error"></div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Create account</button>
+        </form>
+
+        <div class="demo-box">
+          <strong>Demo accounts</strong> (after running <code>npm run db:seed</code>)<br>
+          Owner: <code>owner@demo.com</code> · Caretaker: <code>caretaker@demo.com</code><br>
+          Password: <code>Demo@1234</code>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/app.js"></script>
+  <script src="/js/auth.js"></script>
+</body>
+</html>
