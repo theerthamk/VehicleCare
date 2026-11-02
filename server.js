@@ -32,15 +32,23 @@ if (isProduction) app.set('trust proxy', 1); // needed for secure cookies behind
 
 // ---------- Security & parsing ----------
 app.use(helmet({
+  // OpenStreetMap's tile and search servers require a Referer header, so send
+  // the site origin (the browser default) instead of Helmet's "no-referrer".
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
   contentSecurityPolicy: {
     useDefaults: true,
     directives: {
-      'img-src': ["'self'", 'data:'],
+      // Map tiles from OpenStreetMap; place search via OpenStreetMap Nominatim.
+      'img-src': ["'self'", 'data:', 'blob:', 'https://tile.openstreetmap.org'],
+      'connect-src': ["'self'", 'https://nominatim.openstreetmap.org'],
       // Allow plain-HTTP local testing on other devices in the same network.
       'upgrade-insecure-requests': isProduction ? [] : null
     }
   }
 }));
+// Inspection records may carry up to 4 resized photos as base64, so that one
+// route accepts larger bodies. Everything else stays at 100 kB.
+app.use('/api/maintenance/:id/records', express.json({ limit: '12mb' }));
 app.use(express.json({ limit: '100kb' }));
 
 app.use(session({
@@ -90,6 +98,10 @@ app.use('/api/maintenance', requireAuth, require('./routes/maintenance'));
 app.use('/api/services', requireAuth, require('./routes/services'));
 app.use('/api/notifications', requireAuth, require('./routes/notifications'));
 app.use('/api/reports', requireAuth, require('./routes/reports'));
+app.use('/api/reviews', requireAuth, require('./routes/reviews'));
+app.use('/api/jobs', requireAuth, require('./routes/jobs'));
+app.use('/api/ai', requireAuth, require('./routes/ai'));
+app.use('/api/photos', requireAuth, require('./routes/photos'));
 
 app.use('/api', (req, res) => {
   res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl}` });
@@ -103,6 +115,8 @@ app.get('/sw.js', (req, res) => {
   res.sendFile(path.join(publicDir, 'sw.js'));
 });
 app.use(express.static(publicDir, { extensions: ['html'] }));
+// Leaflet map library, served from node_modules (no CDN needed).
+app.use('/vendor/leaflet', express.static(path.join(__dirname, 'node_modules', 'leaflet', 'dist')));
 app.use((req, res) => {
   res.status(404).sendFile(path.join(publicDir, '404.html'));
 });
@@ -141,6 +155,10 @@ async function start() {
 
   const server = app.listen(PORT, () => {
     console.log(`VehicleCare running at http://localhost:${PORT}`);
+    const aiStatus = require('./services/aiService').status();
+    console.log(aiStatus.configured
+      ? `[ai] Gemini enabled (model ${aiStatus.model}).`
+      : '[ai] No GEMINI_API_KEY in .env: AI features use built-in rules. See README to enable Gemini.');
     startReminderService();
   });
   server.on('error', (err) => {

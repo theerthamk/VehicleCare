@@ -11,6 +11,7 @@
   let user;
   let vehicles = [];
   let statusFilter = '';
+  let picker = null;
 
   const TYPE_LABELS = { car: 'Car', motorcycle: 'Motorcycle', scooter: 'Scooter', truck: 'Truck', van: 'Van', other: 'Other' };
 
@@ -47,25 +48,29 @@
     table.innerHTML =
       '<table><thead><tr><th>Vehicle</th>' +
       (isOwner ? '' : '<th>Owner</th>') +
-      '<th>Status</th><th>Parked since</th><th>Location</th><th>Maintenance</th><th>Last service</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>' +
+      '<th>Health</th><th>Status</th><th>Parked since</th><th>Location</th><th>Maintenance</th><th>Last service</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>' +
       rows.map((v) =>
         '<tr>' +
         `<td><div class="primary">${esc(v.make)} ${esc(v.model)}${v.year ? ` <span class="muted">(${esc(v.year)})</span>` : ''}</div>` +
         `<div class="secondary">${esc(v.registration_number)} · ${esc(TYPE_LABELS[v.vehicle_type] || v.vehicle_type)}</div></td>` +
         (isOwner ? '' : `<td data-label="Owner">${esc(v.owner_name)}${v.owner_phone ? `<div class="secondary">${esc(v.owner_phone)}</div>` : ''}</td>`) +
+        `<td data-label="Health">${v.health ? App.healthBadge(v.health) : '<span class="muted">—</span>'}</td>` +
         `<td data-label="Status">${badge(v.status)}</td>` +
         `<td data-label="Parked since" class="nowrap">${parkedText(v)}</td>` +
-        `<td data-label="Location">${v.location ? esc(v.location) : '<span class="muted">—</span>'}</td>` +
+        `<td data-label="Location">${v.location ? esc(v.location) : '<span class="muted">—</span>'}` +
+        `${isOwner && v.latitude === null ? '<div class="secondary">No map pin</div>' : ''}</td>` +
         `<td data-label="Maintenance">${nextDueText(v)}</td>` +
         `<td data-label="Last service" class="nowrap">${v.last_service ? esc(fmtDate(v.last_service)) : '<span class="muted">Never</span>'}</td>` +
         '<td><div class="actions">' +
         `<a class="btn btn-secondary btn-sm" href="/pages/maintenance.html?vehicle_id=${v.id}">Tasks</a>` +
         (isOwner
-          ? `<button type="button" class="btn btn-ghost btn-sm" data-action="edit" data-id="${v.id}">Edit</button>` +
+          ? `<button type="button" class="btn btn-secondary btn-sm" data-action="plan" data-id="${v.id}" data-icon="sparkles">AI plan</button>` +
+            `<button type="button" class="btn btn-ghost btn-sm" data-action="edit" data-id="${v.id}">Edit</button>` +
             `<button type="button" class="btn btn-danger btn-sm" data-action="delete" data-id="${v.id}">Delete</button>`
           : '') +
         '</div></td></tr>').join('') +
       '</tbody></table>';
+    App.applyIcons(table);
   }
 
   async function load() {
@@ -87,11 +92,21 @@
     if (vehicle) App.fillForm(form, vehicle);
     else form.elements.id.value = '';
     App.openDialog(dialog);
+    // Created after the dialog opens so the map knows its size.
+    picker = window.VCMap
+      ? VCMap.picker(document.getElementById('vehicleMap'), {
+        lat: vehicle ? vehicle.latitude : null,
+        lng: vehicle ? vehicle.longitude : null
+      })
+      : null;
   }
 
   App.bindForm(form, async (values) => {
     const id = values.id;
     delete values.id;
+    const point = picker ? picker.value : null;
+    values.latitude = point ? point.lat : null;
+    values.longitude = point ? point.lng : null;
     if (id) {
       await api.put(`/api/vehicles/${id}`, values);
       App.toast('Vehicle updated.', 'success');
@@ -112,6 +127,13 @@
     const vehicle = vehicles.find((v) => String(v.id) === button.dataset.id);
     if (!vehicle) return;
     if (action === 'edit') return openForm(vehicle);
+    if (action === 'plan') {
+      return CarePlan.open({
+        vehicles,
+        vehicleId: vehicle.id,
+        onCreated: () => load()
+      });
+    }
     if (action === 'delete') {
       const ok = await App.confirm(
         `Delete ${vehicle.make} ${vehicle.model} (${vehicle.registration_number})? Its tasks, service requests and history will also be deleted.`,
@@ -154,6 +176,9 @@
       document.getElementById('pageIntro').textContent = 'Vehicles that have tasks assigned to you.';
     }
     await load();
-    if (user.role === 'owner' && new URLSearchParams(location.search).get('new') === '1') openForm(null);
+    const params = new URLSearchParams(location.search);
+    if (user.role === 'owner' && params.get('new') === '1') openForm(null);
+    const toEdit = user.role === 'owner' && vehicles.find((v) => String(v.id) === params.get('edit'));
+    if (toEdit) openForm(toEdit);
   })();
 })();

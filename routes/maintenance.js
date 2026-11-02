@@ -7,6 +7,8 @@ const { requireRole } = require('../middleware/roles');
 const { asyncHandler, HttpError, parseId } = require('../utils/http');
 const { validate, today } = require('../utils/validate');
 const { notify } = require('../services/notificationService');
+const photoStore = require('../services/photoStore');
+const ai = require('../services/aiService');
 
 const router = express.Router();
 
@@ -20,13 +22,17 @@ const TASK_SELECT = `
          o.full_name AS owner_name,
          a.full_name AS assignee_name,
          sr.id AS request_id,
+         jp.id AS job_id,
+         rv.rating AS review_rating, rv.comment AS review_comment,
          (t.status IN ('pending', 'in_progress') AND t.due_date < CURDATE()) AS is_overdue,
          (SELECT COALESCE(SUM(r.cost), 0) FROM maintenance_records r WHERE r.task_id = t.id) AS total_cost
   FROM maintenance_tasks t
   JOIN vehicles v ON v.id = t.vehicle_id
   JOIN users o ON o.id = v.owner_id
   LEFT JOIN users a ON a.id = t.assigned_to
-  LEFT JOIN service_requests sr ON sr.task_id = t.id`;
+  LEFT JOIN service_requests sr ON sr.task_id = t.id
+  LEFT JOIN job_posts jp ON jp.task_id = t.id
+  LEFT JOIN reviews rv ON rv.task_id = t.id`;
 
 // Adds the "who may see this task" condition for the current user.
 function scopeFor(user) {
@@ -99,8 +105,22 @@ router.get('/:id', asyncHandler(async (req, res) => {
      WHERE r.task_id = ? ORDER BY r.service_date DESC, r.id DESC`,
     [task.id]
   );
+  await attachPhotos(records);
   res.json({ task, records });
 }));
+
+// Adds photos: [{ id }] to each record (served by GET /api/photos/:id).
+async function attachPhotos(records) {
+  records.forEach((r) => { r.photos = []; });
+  if (!records.length) return records;
+  const [photos] = await pool.query(
+    `SELECT id, record_id FROM record_photos WHERE record_id IN (${records.map(() => '?').join(',')}) ORDER BY id`,
+    records.map((r) => r.id)
+  );
+  const byId = new Map(records.map((r) => [r.id, r]));
+  photos.forEach((p) => byId.get(p.record_id).photos.push({ id: p.id }));
+  return records;
+}
 
 // ---------- Create (owner) ----------
 const taskRules = {
@@ -235,6 +255,9 @@ router.patch('/:id/status', asyncHandler(async (req, res) => {
 }));
 
 // ---------- Record inspection or completion ----------
+// Body: { record_type, service_date, notes, cost, mark_complete, photos: [dataUrl, ...] }
+// Photos are optional (max 4). When photos or notes are given, an AI condition
+// report is generated after the record is saved (Gemini, or built-in rules).
 router.post('/:id/records', asyncHandler(async (req, res) => {
   const taskId = parseId(req.params.id, 'task id');
   const user = req.session.user;
@@ -251,61 +274,103 @@ router.post('/:id/records', asyncHandler(async (req, res) => {
   if (data.record_type === 'maintenance' && !markComplete && !data.notes) {
     throw new HttpError(400, 'Add notes describing the work done.', { notes: 'Notes are required.' });
   }
+  const decoded = photoStore.decodePhotos(req.body.photos);
+  const saved = photoStore.savePhotos(decoded);
 
-  const recordId = await withTransaction(async (conn) => {
-    const task = await loadTask(conn, taskId, user, { lock: true });
-    if (!OPEN.includes(task.status)) {
-      throw new HttpError(409, `This task is already ${task.status}. Records can only be added to open tasks.`);
-    }
+  let task;
+  let recordId;
+  try {
+    recordId = await withTransaction(async (conn) => {
+      task = await loadTask(conn, taskId, user, { lock: true });
+      if (!OPEN.includes(task.status)) {
+        throw new HttpError(409, `This task is already ${task.status}. Records can only be added to open tasks.`);
+      }
 
-    const [result] = await conn.execute(
-      `INSERT INTO maintenance_records (vehicle_id, task_id, performed_by, record_type, service_date, notes, cost)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [task.vehicle_id, task.id, user.id, data.record_type, data.service_date, data.notes, data.cost || 0]
-    );
-
-    if (markComplete) {
-      await conn.execute(
-        "UPDATE maintenance_tasks SET status = 'completed', completed_at = NOW() WHERE id = ?",
-        [task.id]
+      const [result] = await conn.execute(
+        `INSERT INTO maintenance_records (vehicle_id, task_id, performed_by, record_type, service_date, notes, cost)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [task.vehicle_id, task.id, user.id, data.record_type, data.service_date, data.notes, data.cost || 0]
       );
-      if (task.request_id) {
+      for (const photo of saved) {
         await conn.execute(
-          `UPDATE service_requests
-           SET status = 'completed',
-               cost = (SELECT COALESCE(SUM(cost), 0) FROM maintenance_records WHERE task_id = ?)
-           WHERE id = ?`,
-          [task.id, task.request_id]
+          'INSERT INTO record_photos (record_id, file_name, mime_type, size_bytes) VALUES (?, ?, ?, ?)',
+          [result.insertId, photo.fileName, photo.mime, photo.size]
         );
       }
-    } else if (task.status === 'pending') {
-      await conn.execute("UPDATE maintenance_tasks SET status = 'in_progress' WHERE id = ?", [task.id]);
-    }
 
-    if (user.role === 'caretaker') {
-      const total = Number(task.total_cost) + (data.cost || 0);
-      await notify(conn, task.owner_id, markComplete
-        ? {
-          title: 'Maintenance completed',
-          message: `${user.full_name} completed "${task.title}" on ${vehicleLabel(task)}. Total cost: ${total.toFixed(2)}.`,
-          link: '/pages/history.html'
+      if (markComplete) {
+        await conn.execute(
+          "UPDATE maintenance_tasks SET status = 'completed', completed_at = NOW() WHERE id = ?",
+          [task.id]
+        );
+        if (task.request_id) {
+          await conn.execute(
+            `UPDATE service_requests
+             SET status = 'completed',
+                 cost = (SELECT COALESCE(SUM(cost), 0) FROM maintenance_records WHERE task_id = ?)
+             WHERE id = ?`,
+            [task.id, task.request_id]
+          );
         }
-        : {
-          title: data.record_type === 'inspection' ? 'Inspection recorded' : 'Work update',
-          message: `${user.full_name} added a${data.record_type === 'inspection' ? 'n inspection' : ' work'} note for "${task.title}" on ${vehicleLabel(task)}.`,
+      } else if (task.status === 'pending') {
+        await conn.execute("UPDATE maintenance_tasks SET status = 'in_progress' WHERE id = ?", [task.id]);
+      }
+
+      if (user.role === 'caretaker') {
+        const total = Number(task.total_cost) + (data.cost || 0);
+        await notify(conn, task.owner_id, markComplete
+          ? {
+            title: 'Maintenance completed',
+            message: `${user.full_name} completed "${task.title}" on ${vehicleLabel(task)}. Total cost: ${total.toFixed(2)}. You can now rate their work.`,
+            link: '/pages/maintenance.html'
+          }
+          : {
+            title: data.record_type === 'inspection' ? 'Inspection recorded' : 'Work update',
+            message: `${user.full_name} added a${data.record_type === 'inspection' ? 'n inspection' : ' work'} note for "${task.title}" on ${vehicleLabel(task)}.`,
+            link: '/pages/maintenance.html'
+          });
+      } else if (markComplete && task.assigned_to) {
+        await notify(conn, task.assigned_to, {
+          title: 'Task closed by owner',
+          message: `The owner marked "${task.title}" on ${vehicleLabel(task)} as completed.`,
           link: '/pages/maintenance.html'
         });
-    } else if (markComplete && task.assigned_to) {
-      await notify(conn, task.assigned_to, {
-        title: 'Task closed by owner',
-        message: `The owner marked "${task.title}" on ${vehicleLabel(task)} as completed.`,
-        link: '/pages/maintenance.html'
+      }
+      return result.insertId;
+    });
+  } catch (err) {
+    photoStore.removeFiles(saved.map((p) => p.fileName));
+    throw err;
+  }
+
+  // AI condition report. The record is already saved, so a failure here never loses data.
+  if (decoded.length || data.notes) {
+    try {
+      const report = await ai.inspectionReport({
+        vehicleLabel: vehicleLabel(task),
+        taskTitle: task.title,
+        notes: data.notes,
+        photos: decoded
       });
+      await pool.execute(
+        'UPDATE maintenance_records SET ai_condition = ?, ai_report = ?, ai_source = ? WHERE id = ?',
+        [report.condition, JSON.stringify({ summary: report.summary, issues: report.issues }), report.source, recordId]
+      );
+      const serious = report.issues.filter((i) => i.severity === 'high');
+      if (user.role === 'caretaker' && report.condition !== 'good') {
+        await notify(null, task.owner_id, {
+          title: report.condition === 'poor' ? 'Inspection found problems' : 'Inspection found minor issues',
+          message: `${vehicleLabel(task)}: ${report.summary}${serious.length ? ` Urgent: ${serious.map((i) => i.issue).join(', ')}.` : ''}`,
+          link: '/pages/maintenance.html'
+        });
+      }
+    } catch (err) {
+      console.error('[ai] Could not save inspection report:', err.message);
     }
-    return result.insertId;
-  });
+  }
 
   const [records] = await pool.execute('SELECT * FROM maintenance_records WHERE id = ?', [recordId]);
+  await attachPhotos(records);
   res.status(201).json({ record: records[0], task: await loadTask(pool, taskId, user) });
 }));
 

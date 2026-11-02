@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  const { esc, badge, fmtDate, fmtDateTime, relativeDue, money, emptyState } = App;
+  const { esc, badge, fmtDate, fmtDateTime, relativeDue, money, emptyState, stars, sourceBadge } = App;
 
   const table = document.getElementById('taskTable');
   const vehicleFilter = document.getElementById('vehicleFilter');
@@ -13,6 +13,12 @@
   const detailDialog = document.getElementById('detailDialog');
   const recordDialog = document.getElementById('recordDialog');
   const recordForm = document.getElementById('recordForm');
+  const rateDialog = document.getElementById('rateDialog');
+  const rateForm = document.getElementById('rateForm');
+  const photoInput = document.getElementById('rPhotos');
+  const photoPreview = document.getElementById('photoPreview');
+  const MAX_PHOTOS = 4;
+  let pendingPhotos = []; // data URLs, already resized
 
   let user;
   let tasks = [];
@@ -23,10 +29,14 @@
 
   const isOwner = () => user.role === 'owner';
   const isOpen = (t) => t.status === 'pending' || t.status === 'in_progress';
+  const canRate = (t) => isOwner() && t.status === 'completed' && t.assigned_to;
 
   // ---------- Table ----------
   function rowActions(t) {
     let html = `<button type="button" class="btn btn-ghost btn-sm" data-action="details" data-id="${t.id}">Details</button>`;
+    if (canRate(t) && !t.review_rating) {
+      html += `<button type="button" class="btn btn-primary btn-sm" data-action="rate" data-id="${t.id}" data-icon="star">Rate</button>`;
+    }
     if (!isOpen(t)) return html;
     if (isOwner()) {
       html += `<button type="button" class="btn btn-secondary btn-sm" data-action="edit" data-id="${t.id}">Edit</button>`;
@@ -71,12 +81,14 @@
           `${t.request_id ? ' · from service request' : ''}</div></td>` +
           `<td data-label="Due" class="nowrap">${esc(fmtDate(t.due_date))}${dueSub}</td>` +
           `<td data-label="Priority">${badge(t.priority)}</td>` +
-          `<td data-label="Status">${late ? badge('overdue') : badge(t.status)}</td>` +
+          `<td data-label="Status">${late ? badge('overdue') : badge(t.status)}` +
+          `${t.review_rating ? `<div class="small" title="Your rating">${stars(t.review_rating)}</div>` : ''}</td>` +
           `<td data-label="${isOwner() ? 'Caretaker' : 'Owner'}">${person}</td>` +
           `<td data-label="Cost" class="num">${Number(t.total_cost) ? esc(money(t.total_cost)) : '<span class="muted">—</span>'}</td>` +
           `<td><div class="actions">${rowActions(t)}</div></td></tr>`;
       }).join('') +
       '</tbody></table>';
+    App.applyIcons(table);
   }
 
   async function loadTasks() {
@@ -151,6 +163,59 @@
     await loadTasks();
   });
 
+  // ---------- Details: photos, AI report, review ----------
+  function photoGrid(photos) {
+    if (!photos || !photos.length) return '';
+    return '<div class="photo-grid">' + photos.map((ph) =>
+      `<button type="button" class="thumb-wrap" data-photo="${ph.id}" style="padding:0;border:0;background:none;cursor:zoom-in" aria-label="Open photo">` +
+      `<img src="/api/photos/${ph.id}" alt="Inspection photo" loading="lazy"></button>`).join('') + '</div>';
+  }
+
+  const CONDITION = {
+    good: { tone: 'green', text: 'Good condition' },
+    fair: { tone: 'amber', text: 'Minor issues' },
+    poor: { tone: 'red', text: 'Needs attention' }
+  };
+
+  function aiReport(r) {
+    if (!r.ai_condition) return '';
+    let report = r.ai_report;
+    if (typeof report === 'string') {
+      try { report = JSON.parse(report); } catch (e) { report = null; }
+    }
+    report = report || { summary: '', issues: [] };
+    const c = CONDITION[r.ai_condition];
+    const sev = { high: 'red', medium: 'amber', low: '' };
+    return '<div class="ai-report">' +
+      `<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center">` +
+      `<strong class="small">AI condition report</strong>${sourceBadge(r.ai_source)}</div>` +
+      `<div style="margin-top:6px"><span class="badge ${c.tone}">${c.text}</span></div>` +
+      (report.summary ? `<p class="small" style="margin:6px 0 0">${esc(report.summary)}</p>` : '') +
+      (report.issues && report.issues.length
+        ? '<ul>' + report.issues.map((i) =>
+          `<li><span class="badge ${sev[i.severity] || ''}">${esc(i.severity)}</span> <strong>${esc(i.issue)}</strong> — ${esc(i.recommendation)}</li>`).join('') + '</ul>'
+        : '') +
+      '</div>';
+  }
+
+  function reviewBlock(task) {
+    if (task.status !== 'completed' || !task.assigned_to) return '';
+    if (task.review_rating) {
+      return '<h3 style="margin-top:20px">Your review</h3>' +
+        `<div class="record">${stars(task.review_rating)}${task.review_comment ? `<p class="small" style="margin:6px 0 0">${esc(task.review_comment)}</p>` : ''}</div>`;
+    }
+    return isOwner()
+      ? `<div class="callout small" style="margin-top:16px">How did ${esc(task.assignee_name)} do? Your rating helps other owners choose a caretaker.</div>`
+      : '<p class="small muted" style="margin-top:16px">The owner has not rated this job yet.</p>';
+  }
+
+  document.getElementById('detailBody').addEventListener('click', (event) => {
+    const thumb = event.target.closest('[data-photo]');
+    if (!thumb) return;
+    document.getElementById('photoFull').src = `/api/photos/${thumb.dataset.photo}`;
+    App.openDialog(document.getElementById('photoDialog'));
+  });
+
   // ---------- Details ----------
   async function openDetails(id) {
     const body = document.getElementById('detailBody');
@@ -180,8 +245,10 @@
             `<div>${badge(r.record_type)} <strong>${esc(fmtDate(r.service_date))}</strong>` +
             ` <span class="muted small">by ${esc(r.performed_by_name || 'deleted user')}</span></div>` +
             `<strong>${esc(money(r.cost))}</strong></div>` +
-            `${r.notes ? `<p class="small" style="margin:8px 0 0">${esc(r.notes)}</p>` : ''}</div>`).join('')
-          : '<p class="muted small" style="margin-top:8px">Nothing recorded yet.</p>');
+            `${r.notes ? `<p class="small" style="margin:8px 0 0">${esc(r.notes)}</p>` : ''}` +
+            photoGrid(r.photos) + aiReport(r) + '</div>').join('')
+          : '<p class="muted small" style="margin-top:8px">Nothing recorded yet.</p>') +
+        reviewBlock(task);
 
       let buttons = '<button type="button" class="btn btn-ghost" data-close>Close</button>';
       if (isOpen(task)) {
@@ -197,6 +264,8 @@
         }
       } else if (isOwner() && task.status === 'cancelled') {
         buttons = `<button type="button" class="btn btn-danger" data-detail="delete" data-id="${task.id}">Delete</button>` + buttons;
+      } else if (canRate(task)) {
+        buttons += `<button type="button" class="btn btn-primary" data-detail="rate" data-id="${task.id}">${task.review_rating ? 'Edit rating' : 'Rate caretaker'}</button>`;
       }
       actions.innerHTML = buttons;
       detailDialog.dataset.taskId = task.id;
@@ -220,22 +289,88 @@
     recordForm.elements.mark_complete.checked = complete;
     recordForm.elements.service_date.value = App.today();
     recordForm.elements.service_date.max = App.today();
+    pendingPhotos = [];
+    renderPhotoPreview();
     App.openDialog(recordDialog);
   }
+
+  function renderPhotoPreview() {
+    photoPreview.innerHTML = pendingPhotos.map((url, i) =>
+      `<div class="thumb-wrap"><img class="thumb" src="${url}" alt="Photo ${i + 1}">` +
+      `<button type="button" class="remove" data-remove="${i}" aria-label="Remove photo ${i + 1}">×</button></div>`).join('');
+    photoInput.disabled = pendingPhotos.length >= MAX_PHOTOS;
+  }
+
+  photoInput.addEventListener('change', async () => {
+    const errorSlot = document.getElementById('photoError');
+    errorSlot.textContent = '';
+    const files = Array.from(photoInput.files || []);
+    const room = MAX_PHOTOS - pendingPhotos.length;
+    if (files.length > room) errorSlot.textContent = `Only ${MAX_PHOTOS} photos can be attached; extra ones were skipped.`;
+    for (const file of files.slice(0, room)) {
+      try {
+        // Phone photos are 3-8 MB; shrink them in the browser before upload.
+        pendingPhotos.push(await App.resizeImage(file, 1280, 0.8));
+      } catch (error) {
+        errorSlot.textContent = error.message;
+      }
+    }
+    photoInput.value = '';
+    renderPhotoPreview();
+  });
+
+  photoPreview.addEventListener('click', (event) => {
+    const remove = event.target.closest('[data-remove]');
+    if (!remove) return;
+    pendingPhotos.splice(Number(remove.dataset.remove), 1);
+    renderPhotoPreview();
+  });
 
   App.bindForm(recordForm, async (values) => {
     if (values.record_type === 'maintenance' && !values.mark_complete && !values.notes) {
       throw new api.ApiError(400, 'Add notes describing the work done.', { notes: 'Notes are required for a work update.' });
     }
-    await api.post(`/api/maintenance/${values.task_id}/records`, {
+    const result = await api.post(`/api/maintenance/${values.task_id}/records`, {
       record_type: values.record_type,
       service_date: values.service_date,
       cost: values.cost,
       notes: values.notes,
-      mark_complete: values.mark_complete
+      mark_complete: values.mark_complete,
+      photos: pendingPhotos
     });
-    App.toast(values.mark_complete ? 'Task completed.' : 'Record saved.', 'success');
+    const condition = result.record && result.record.ai_condition;
+    const verdict = condition ? ` AI report: ${CONDITION[condition].text.toLowerCase()}.` : '';
+    App.toast(`${values.mark_complete ? 'Task completed.' : 'Record saved.'}${verdict}`, condition === 'poor' ? 'error' : 'success');
+    pendingPhotos = [];
     App.closeDialog(recordDialog);
+    App.closeDialog(detailDialog);
+    await loadTasks();
+    // Show the new record with its photos and AI report.
+    if (result.record && (result.record.ai_condition || (result.record.photos && result.record.photos.length))) {
+      openDetails(Number(values.task_id));
+    }
+  });
+
+  // ---------- Rating (owner) ----------
+  function openRateForm(task) {
+    rateForm.reset();
+    App.clearErrors(rateForm);
+    rateForm.elements.task_id.value = task.id;
+    document.getElementById('rateTitle').textContent = `Rate ${task.assignee_name}`;
+    document.getElementById('rateSummary').textContent =
+      `For "${task.title}" on your ${task.make} ${task.model}.`;
+    if (task.review_rating) {
+      const star = rateForm.querySelector(`input[name=rating][value="${task.review_rating}"]`);
+      if (star) star.checked = true;
+      rateForm.elements.comment.value = task.review_comment || '';
+    }
+    App.openDialog(rateDialog);
+  }
+
+  App.bindForm(rateForm, async (values) => {
+    await api.post('/api/reviews', { task_id: values.task_id, rating: values.rating, comment: values.comment });
+    App.toast('Thanks! Your rating has been saved.', 'success');
+    App.closeDialog(rateDialog);
     App.closeDialog(detailDialog);
     await loadTasks();
   });
@@ -280,6 +415,7 @@
         return undefined;
       }
       case 'delete': return deleteTask(task);
+      case 'rate': return openRateForm(task);
       default: return undefined;
     }
   }
@@ -317,6 +453,17 @@
       const btn = document.getElementById('newTaskBtn');
       btn.classList.remove('hidden');
       btn.addEventListener('click', () => openTaskForm(null));
+      const planBtn = document.getElementById('planBtn');
+      planBtn.classList.remove('hidden');
+      planBtn.addEventListener('click', () => CarePlan.open({
+        vehicles,
+        vehicleId: vehicleFilter.value || null,
+        onCreated: () => {
+          statusFilter = 'open';
+          document.querySelectorAll('#statusTabs .tab').forEach((t) => t.classList.toggle('active', t.dataset.status === 'open'));
+          loadTasks();
+        }
+      }));
     } else {
       document.getElementById('pageHeading').textContent = 'My Tasks';
       document.getElementById('pageIntro').textContent = 'Work assigned to you. Record inspections and complete tasks with notes and costs.';
@@ -333,6 +480,12 @@
       App.toast(error.message, 'error');
     }
     await loadTasks();
-    if (isOwner() && new URLSearchParams(location.search).get('new') === '1') openTaskForm(null);
+    const params = new URLSearchParams(location.search);
+    if (isOwner() && params.get('new') === '1') openTaskForm(null);
+    if (params.get('status')) {
+      const tab = document.querySelector(`#statusTabs .tab[data-status="${CSS.escape(params.get('status'))}"]`);
+      if (tab) tab.click();
+    }
+    if (/^\d+$/.test(params.get('task') || '')) openDetails(Number(params.get('task')));
   })();
 })();

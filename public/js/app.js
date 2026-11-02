@@ -26,7 +26,14 @@
     parking: '<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/>',
     clipboard: '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/>',
     phone: '<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z"/>',
-    pin: '<path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>'
+    pin: '<path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+    sparkles: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9Z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8Z"/>',
+    briefcase: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/>',
+    star: '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9Z"/>',
+    camera: '<path d="M3 8a2 2 0 0 1 2-2h2l2-3h6l2 3h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><circle cx="12" cy="13" r="4"/>',
+    heart: '<path d="M20.8 5.6a5.5 5.5 0 0 0-7.8 0L12 6.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 22l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/>',
+    send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
+    locate: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="7"/>'
   };
 
   function icon(name, extraClass) {
@@ -40,7 +47,9 @@
       { key: 'dashboard', href: '/pages/owner.html', label: 'Dashboard', icon: 'dashboard' },
       { key: 'vehicles', href: '/pages/vehicles.html', label: 'My Vehicles', icon: 'car' },
       { key: 'maintenance', href: '/pages/maintenance.html', label: 'Maintenance', icon: 'wrench' },
-      { key: 'services', href: '/pages/services.html', label: 'Service Providers', icon: 'handshake' },
+      { key: 'assistant', href: '/pages/assistant.html', label: 'AI Assistant', icon: 'sparkles' },
+      { key: 'services', href: '/pages/services.html', label: 'Find Caretakers', icon: 'handshake' },
+      { key: 'jobs', href: '/pages/jobs.html', label: 'Job Pool', icon: 'briefcase' },
       { key: 'history', href: '/pages/history.html', label: 'History & Expenses', icon: 'history' },
       { key: 'notifications', href: '/pages/notifications.html', label: 'Notifications', icon: 'bell' },
       { key: 'profile', href: '/pages/profile.html', label: 'Profile', icon: 'user' }
@@ -48,8 +57,10 @@
     caretaker: [
       { key: 'dashboard', href: '/pages/caretaker.html', label: 'Dashboard', icon: 'dashboard' },
       { key: 'maintenance', href: '/pages/maintenance.html', label: 'My Tasks', icon: 'clipboard' },
-      { key: 'vehicles', href: '/pages/vehicles.html', label: 'Assigned Vehicles', icon: 'car' },
+      { key: 'jobs', href: '/pages/jobs.html', label: 'Find Jobs', icon: 'briefcase' },
       { key: 'services', href: '/pages/services.html', label: 'Service Requests', icon: 'handshake' },
+      { key: 'vehicles', href: '/pages/vehicles.html', label: 'Assigned Vehicles', icon: 'car' },
+      { key: 'assistant', href: '/pages/assistant.html', label: 'AI Assistant', icon: 'sparkles' },
       { key: 'history', href: '/pages/history.html', label: 'Completed Work', icon: 'history' },
       { key: 'notifications', href: '/pages/notifications.html', label: 'Notifications', icon: 'bell' },
       { key: 'profile', href: '/pages/profile.html', label: 'Provider Profile', icon: 'user' }
@@ -138,6 +149,81 @@
 
   function emptyState(iconName, text, actionHtml) {
     return `<div class="empty">${icon(iconName)}<div>${esc(text)}</div>${actionHtml || ''}</div>`;
+  }
+
+  // ★★★★☆ display for a 0-5 rating.
+  function stars(rating, count) {
+    if (rating === null || rating === undefined) return '<span class="muted small">No reviews yet</span>';
+    const r = Math.round(Number(rating) * 2) / 2;
+    let html = '<span class="stars" aria-label="' + esc(rating) + ' out of 5">';
+    for (let i = 1; i <= 5; i += 1) html += `<span class="${i <= r ? 'on' : i - 0.5 === r ? 'half' : ''}">★</span>`;
+    html += `</span> <strong>${esc(Number(rating).toFixed(1))}</strong>`;
+    if (count !== undefined) html += ` <span class="muted small">(${esc(count)})</span>`;
+    return html;
+  }
+
+  // Coloured health-score pill with the reasons as a tooltip.
+  function healthBadge(health) {
+    if (!health) return '';
+    const tone = health.score >= 80 ? 'green' : health.score >= 55 ? 'amber' : 'red';
+    const title = health.reasons.length ? health.reasons.join(' · ') : 'No problems found';
+    return `<span class="health ${tone}" title="${esc(title)}"><span class="health-num">${esc(health.score)}</span>${esc(health.label)}</span>`;
+  }
+
+  function sourceBadge(source) {
+    return source === 'gemini'
+      ? `<span class="ai-chip">${icon('sparkles')}Gemini AI</span>`
+      : `<span class="ai-chip rules">${icon('sparkles')}Built-in rules</span>`;
+  }
+
+  // Resizes an image file in the browser (max 1600 px, JPEG) and returns a data URL.
+  function resizeImage(file, maxSize = 1600, quality = 0.82) {
+    return new Promise((resolve, reject) => {
+      if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
+        reject(new Error(`${file.name} is not a JPEG, PNG or WebP image.`));
+        return;
+      }
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error(`${file.name} could not be read as an image.`));
+      };
+      img.src = url;
+    });
+  }
+
+  // Very small, safe formatter for AI replies: escapes HTML, then supports
+  // **bold**, "- " / "* " / "1. " lists and paragraphs.
+  function formatAiText(text) {
+    const lines = esc(text).split(/\n/);
+    let html = '';
+    let list = null;
+    const inline = (l) => l.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    lines.forEach((raw) => {
+      const line = raw.trim();
+      const bullet = line.match(/^[-*•]\s+(.*)$/);
+      const numbered = line.match(/^\d+[.)]\s+(.*)$/);
+      if (bullet || numbered) {
+        const type = bullet ? 'ul' : 'ol';
+        if (list !== type) { if (list) html += `</${list}>`; html += `<${type}>`; list = type; }
+        html += `<li>${inline((bullet || numbered)[1])}</li>`;
+        return;
+      }
+      if (list) { html += `</${list}>`; list = null; }
+      if (line) html += `<p>${inline(line.replace(/^#+\s*/, ''))}</p>`;
+    });
+    if (list) html += `</${list}>`;
+    return html;
   }
 
   function initials(name) {
@@ -455,6 +541,11 @@
     vehicleName,
     emptyState,
     initials,
+    stars,
+    healthBadge,
+    sourceBadge,
+    resizeImage,
+    formatAiText,
     toast,
     openDialog,
     closeDialog,

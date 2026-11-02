@@ -23,28 +23,111 @@
   const isOwner = () => user.role === 'owner';
 
   // ---------- Providers (owner) ----------
-  function renderProviders() {
-    if (!providers.length) {
-      providerGrid.innerHTML = `<div class="card" style="grid-column:1/-1">${emptyState('user',
-        providerSearch.value ? 'No providers match your search.' : 'No caretakers have registered yet.')}</div>`;
-      return;
+  const nearVehicle = document.getElementById('nearVehicle');
+  const sortBy = document.getElementById('sortBy');
+  const coversOnly = document.getElementById('coversOnly');
+  let origin = null;
+  let providerMap = null;
+
+  function sortedProviders() {
+    let list = providers.slice();
+    if (origin && coversOnly.checked) list = list.filter((p) => p.covers);
+    const by = sortBy.value;
+    list.sort((a, b) => {
+      if (by === 'distance') return (a.distance_km ?? 99999) - (b.distance_km ?? 99999);
+      if (by === 'rating') return (b.avg_rating ?? 0) - (a.avg_rating ?? 0) || b.review_count - a.review_count;
+      return b.match_score - a.match_score;
+    });
+    return list;
+  }
+
+  function providerCard(p, best) {
+    const scoreColor = p.match_score >= 70 ? 'var(--green)' : p.match_score >= 50 ? '#c27a00' : 'var(--red)';
+    let where = '';
+    if (p.distance_km !== null && p.distance_km !== undefined) {
+      where = `<span class="${p.covers ? '' : 'muted'}">${icon('pin')} ${esc(p.distance_km)} km away` +
+        `${p.covers ? '' : ` (travels ${esc(p.service_radius_km)} km)`}</span>`;
+    } else if (p.city) {
+      where = `<span>${icon('pin')} ${esc(p.city)}</span>`;
     }
-    providerGrid.innerHTML = providers.map((p) =>
-      '<article class="card provider">' +
+    return `<article class="card provider"${best ? ' style="border-color:var(--blue-500);box-shadow:0 0 0 3px var(--blue-100)"' : ''}>` +
       `<div class="provider-top"><div class="avatar">${esc(initials(p.full_name))}</div>` +
-      `<div class="grow"><h3>${esc(p.full_name)}</h3>` +
+      `<div class="grow"><h3>${esc(p.full_name)} ${p.top_rated ? '<span class="badge gold">Top rated</span>' : ''}` +
+      `${best ? ' <span class="badge blue">Best match</span>' : ''}</h3>` +
       `<div class="small muted">${p.specialization ? esc(p.specialization) : 'General vehicle care'}</div></div></div>` +
+      `<button type="button" class="btn btn-ghost btn-sm" data-reviews="${p.id}" style="justify-content:flex-start;padding:0 4px;height:auto">${App.stars(p.avg_rating, p.review_count)}</button>` +
       (p.bio ? `<p class="small" style="margin:0">${esc(p.bio)}</p>` : '') +
-      '<div class="meta">' +
-      (p.city ? `<span>${icon('pin', 'inline-icon')} ${esc(p.city)}</span>` : '') +
+      '<div class="meta">' + where +
       (p.phone ? `<span>${icon('phone')} ${esc(p.phone)}</span>` : '') +
       `<span>${icon('check')} ${esc(p.completed_jobs)} job${Number(p.completed_jobs) === 1 ? '' : 's'} done</span></div>` +
+      (origin
+        ? `<div><div class="small">Match score <span class="score">${esc(p.match_score)}/100</span></div>` +
+          `<div class="meter"><div style="width:${Number(p.match_score) || 0}%;background:${scoreColor}"></div></div></div>`
+        : '') +
+      '<div class="actions">' +
       `<button type="button" class="btn btn-primary btn-sm" data-request-provider="${p.id}">Request service</button>` +
-      '</article>').join('');
-    providerGrid.querySelectorAll('.meta svg').forEach((svg) => {
-      svg.setAttribute('width', '15');
-      svg.setAttribute('height', '15');
-      svg.style.verticalAlign = '-2px';
+      `<button type="button" class="btn btn-ghost btn-sm" data-reviews="${p.id}">Reviews</button></div>` +
+      '</article>';
+  }
+
+  function renderProviders() {
+    const list = sortedProviders();
+    const note = document.getElementById('nearNote');
+    const vehicle = vehicles.find((v) => String(v.id) === nearVehicle.value);
+    if (vehicle && !origin) {
+      note.classList.remove('hidden');
+      note.innerHTML = `${esc(vehicle.make)} ${esc(vehicle.model)} has no map location yet, so distances cannot be shown. ` +
+        `<a href="/pages/vehicles.html?edit=${vehicle.id}">Set its location</a>.`;
+    } else if (origin) {
+      const covering = providers.filter((p) => p.covers).length;
+      note.classList.remove('hidden');
+      note.innerHTML = `<strong>${covering}</strong> caretaker${covering === 1 ? '' : 's'} travel to your ${esc(vehicle.make)} ${esc(vehicle.model)}. ` +
+        'Match score combines rating, distance, experience and skills.';
+    } else {
+      note.classList.add('hidden');
+    }
+
+    if (!list.length) {
+      providerGrid.innerHTML = `<div class="card" style="grid-column:1/-1">${emptyState('user',
+        providerSearch.value ? 'No providers match your search.'
+          : origin ? 'No caretakers travel to this vehicle yet. Untick "Only those who travel there", or post it in the Job Pool.'
+            : 'No caretakers have registered yet.')}</div>`;
+    } else {
+      providerGrid.innerHTML = list.map((p, i) => providerCard(p, origin && i === 0 && sortBy.value === 'match' && list.length > 1)).join('');
+      providerGrid.querySelectorAll('.meta svg').forEach((svg) => {
+        svg.setAttribute('width', '15');
+        svg.setAttribute('height', '15');
+        svg.style.verticalAlign = '-2px';
+      });
+    }
+    renderProviderMap();
+  }
+
+  function renderProviderMap() {
+    const card = document.getElementById('providerMapCard');
+    if (!origin || !window.VCMap) {
+      card.classList.add('hidden');
+      return;
+    }
+    card.classList.remove('hidden');
+    const shown = providers.filter((p) => p.latitude !== null);
+    const markers = [{ lat: Number(origin.latitude), lng: Number(origin.longitude), color: '#1f5bd8', size: 10, label: 'Your vehicle' }];
+    const circles = [];
+    shown.forEach((p) => {
+      markers.push({
+        lat: Number(p.latitude),
+        lng: Number(p.longitude),
+        color: p.covers ? '#12805c' : '#8a94a6',
+        label: `${p.full_name} · ${p.distance_km} km`,
+        popup: `<strong>${esc(p.full_name)}</strong><br>${p.avg_rating !== null ? `${esc(p.avg_rating)} ★ · ` : ''}${esc(p.distance_km)} km away`
+      });
+      if (p.covers) circles.push({ lat: Number(p.latitude), lng: Number(p.longitude), radiusKm: Number(p.service_radius_km), color: '#12805c' });
+    });
+    if (providerMap) providerMap.remove();
+    providerMap = VCMap.view(document.getElementById('providerMap'), {
+      center: { lat: Number(origin.latitude), lng: Number(origin.longitude) },
+      markers,
+      circles
     });
   }
 
@@ -53,9 +136,13 @@
   async function loadProviders() {
     const requestId = ++providerRequestId;
     try {
-      const data = await api.get(api.url('/api/services/providers', { q: providerSearch.value.trim() }));
+      const data = await api.get(api.url('/api/services/providers', {
+        q: providerSearch.value.trim(),
+        vehicle_id: nearVehicle.value
+      }));
       if (requestId !== providerRequestId) return; // a newer search has started; ignore this result
       providers = data.providers;
+      origin = data.origin;
       renderProviders();
     } catch (error) {
       providerGrid.innerHTML = `<div class="card" style="grid-column:1/-1">${emptyState('alert', error.message)}</div>`;
@@ -74,6 +161,7 @@
     document.getElementById('sVehicle').innerHTML = '<option value="">Choose a vehicle</option>' + vehicles.map((v) =>
       `<option value="${v.id}">${esc(v.make)} ${esc(v.model)} · ${esc(v.registration_number)}</option>`).join('');
     requestForm.elements.provider_id.value = String(providerId);
+    if (nearVehicle.value) requestForm.elements.vehicle_id.value = nearVehicle.value;
     requestForm.elements.preferred_date.min = App.today();
     App.openDialog(requestDialog);
   }
@@ -206,7 +294,7 @@
   (async function start() {
     user = await App.init({
       page: 'services',
-      title: (u) => (u.role === 'owner' ? 'Service Providers' : 'Service Requests'),
+      title: (u) => (u.role === 'owner' ? 'Find Caretakers' : 'Service Requests'),
       roles: ['owner', 'caretaker']
     });
 
@@ -218,14 +306,25 @@
         searchTimer = setTimeout(loadProviders, 250);
       });
       providerGrid.addEventListener('click', (event) => {
+        const reviews = event.target.closest('[data-reviews]');
+        if (reviews) { Reviews.open(reviews.dataset.reviews); return; }
         const button = event.target.closest('[data-request-provider]');
         if (button) openRequestForm(button.dataset.requestProvider);
       });
       try {
         vehicles = (await api.get('/api/vehicles')).vehicles;
+        nearVehicle.innerHTML = '<option value="">Near: any location</option>' + vehicles.map((v) =>
+          `<option value="${v.id}">Near my ${esc(v.make)} ${esc(v.model)}${v.latitude === null ? ' (no location)' : ''}</option>`).join('');
+        // Default to the first vehicle that has a map location.
+        const preset = new URLSearchParams(location.search).get('vehicle_id');
+        const located = vehicles.find((v) => String(v.id) === preset) || vehicles.find((v) => v.latitude !== null);
+        if (located) nearVehicle.value = String(located.id);
       } catch (error) {
         App.toast(error.message, 'error');
       }
+      nearVehicle.addEventListener('change', loadProviders);
+      sortBy.addEventListener('change', renderProviders);
+      coversOnly.addEventListener('change', renderProviders);
       await loadProviders();
     } else {
       document.getElementById('pageHeading').textContent = 'Service Requests';

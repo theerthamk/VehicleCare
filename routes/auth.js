@@ -6,6 +6,7 @@ const { pool } = require('../config/db');
 const { requireAuth } = require('../middleware/auth');
 const { asyncHandler, HttpError } = require('../utils/http');
 const { validate } = require('../utils/validate');
+const { coordRules, checkCoordPair } = require('../utils/geo');
 
 const router = express.Router();
 const BCRYPT_ROUNDS = 12;
@@ -26,7 +27,7 @@ const loginLimiter = rateLimit({
 });
 
 const PUBLIC_USER_COLUMNS =
-  'id, full_name, email, role, phone, city, specialization, bio, created_at';
+  'id, full_name, email, role, phone, city, specialization, bio, latitude, longitude, service_radius_km, created_at';
 
 function checkPasswordStrength(password) {
   if (typeof password !== 'string' || password.length < 8) {
@@ -141,6 +142,21 @@ router.put('/profile', requireAuth, asyncHandler(async (req, res) => {
     rules.bio = { type: 'string', max: 500, label: 'About' };
   }
   const data = validate(req.body, rules);
+  if (role === 'caretaker') {
+    // Location and radius change only when they are sent, so a form that
+    // does not include the map never erases a saved location.
+    const location = validate(req.body, {
+      latitude: coordRules.latitude,
+      longitude: coordRules.longitude,
+      service_radius_km: { type: 'int', min: 1, max: 200, label: 'Service radius' }
+    }, { partial: true });
+    if ('latitude' in location || 'longitude' in location) {
+      checkCoordPair({ latitude: location.latitude, longitude: location.longitude });
+      data.latitude = location.latitude;
+      data.longitude = location.longitude;
+    }
+    if (location.service_radius_km) data.service_radius_km = location.service_radius_km;
+  }
   if (data.phone && !/^[0-9+\-\s()]{6,20}$/.test(data.phone)) {
     throw new HttpError(400, 'Phone number can contain only digits, spaces, +, - and brackets.', { phone: 'Invalid phone number.' });
   }

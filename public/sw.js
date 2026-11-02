@@ -3,7 +3,7 @@
 // - NEVER caches /api/ responses: they contain private, per-user data.
 // - Pages are network-first so users always get fresh HTML when online.
 // Change CACHE_VERSION whenever you change files in /public.
-const CACHE_VERSION = 'vehiclecare-v1';
+const CACHE_VERSION = 'vehiclecare-v2';
 
 const APP_SHELL = [
   '/index.html',
@@ -20,6 +20,13 @@ const APP_SHELL = [
   '/js/history.js',
   '/js/notifications.js',
   '/js/profile.js',
+  '/js/assistant.js',
+  '/js/jobs.js',
+  '/js/map.js',
+  '/js/reviews.js',
+  '/js/careplan.js',
+  '/vendor/leaflet/leaflet.js',
+  '/vendor/leaflet/leaflet.css',
   '/pages/owner.html',
   '/pages/caretaker.html',
   '/pages/vehicles.html',
@@ -28,6 +35,8 @@ const APP_SHELL = [
   '/pages/history.html',
   '/pages/notifications.html',
   '/pages/profile.html',
+  '/pages/assistant.html',
+  '/pages/jobs.html',
   '/icons/icon-192.png',
   '/icons/icon-512.png'
 ];

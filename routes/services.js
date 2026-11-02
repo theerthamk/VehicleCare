@@ -8,12 +8,18 @@ const { requireRole } = require('../middleware/roles');
 const { asyncHandler, HttpError, parseId } = require('../utils/http');
 const { validate, today } = require('../utils/validate');
 const { notify } = require('../services/notificationService');
+const { CARETAKER_SELECT, decorate } = require('../services/caretakers');
 
 const router = express.Router();
 const REQUEST_STATUSES = ['pending', 'accepted', 'declined', 'cancelled', 'completed'];
 
 // ---------- Providers ----------
+// GET /api/services/providers?q=&vehicle_id=
+// With vehicle_id (owner's vehicle that has a map location) each caretaker gets
+// distance_km, covers (inside their service radius) and a match score, and the
+// list is sorted best match first. Without it, the list is sorted by rating.
 router.get('/providers', asyncHandler(async (req, res) => {
+  const user = req.session.user;
   const q = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 60) : '';
   const params = [];
   let filter = '';
@@ -22,17 +28,25 @@ router.get('/providers', asyncHandler(async (req, res) => {
     const like = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
     params.push(like, like, like);
   }
-  const [rows] = await pool.execute(
-    `SELECT u.id, u.full_name, u.phone, u.city, u.specialization, u.bio, u.created_at,
-       (SELECT COUNT(*) FROM maintenance_tasks t WHERE t.assigned_to = u.id AND t.status = 'completed') AS completed_jobs,
-       (SELECT COUNT(*) FROM maintenance_tasks t WHERE t.assigned_to = u.id AND t.status IN ('pending', 'in_progress')) AS open_jobs
-     FROM users u
-     WHERE u.role = 'caretaker'${filter}
-     ORDER BY u.full_name
-     LIMIT 200`,
-    params
-  );
-  res.json({ providers: rows });
+
+  let origin = null;
+  if (req.query.vehicle_id && user.role === 'owner') {
+    const [vehicles] = await pool.execute(
+      'SELECT id, latitude, longitude, make, model FROM vehicles WHERE id = ? AND owner_id = ?',
+      [parseId(req.query.vehicle_id, 'vehicle id'), user.id]
+    );
+    if (!vehicles.length) throw new HttpError(404, 'Vehicle not found.');
+    origin = vehicles[0].latitude === null ? null : vehicles[0];
+  }
+
+  const [rows] = await pool.execute(`${CARETAKER_SELECT}${filter} ORDER BY u.full_name LIMIT 200`, params);
+  const providers = rows.map((c) => decorate(c, origin, q));
+  if (origin) {
+    providers.sort((a, b) => (b.covers === true) - (a.covers === true) || b.match_score - a.match_score);
+  } else {
+    providers.sort((a, b) => (b.avg_rating || 0) - (a.avg_rating || 0) || b.completed_jobs - a.completed_jobs);
+  }
+  res.json({ providers, origin: origin ? { latitude: origin.latitude, longitude: origin.longitude } : null });
 }));
 
 // ---------- Requests ----------

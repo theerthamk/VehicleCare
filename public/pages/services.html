@@ -8,6 +8,7 @@
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" href="/icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
@@ -18,17 +19,31 @@
       <main class="content" id="content" hidden>
         <div class="page-head">
           <div>
-            <h1 id="pageHeading">Service Providers</h1>
-            <p id="pageIntro">Find a caretaker and request a service for one of your vehicles.</p>
+            <h1 id="pageHeading">Find Caretakers</h1>
+            <p id="pageIntro">Caretakers who travel to your vehicle, ranked by rating, distance and experience. Request a service directly, or post a job to get several prices.</p>
           </div>
         </div>
 
         <!-- Owner: provider directory -->
         <section id="providerSection" class="hidden" style="margin-bottom:28px">
           <div class="toolbar">
-            <h2 class="grow">Caretakers &amp; service providers</h2>
+            <label class="sr-only" for="nearVehicle">Find caretakers near</label>
+            <select id="nearVehicle" style="max-width:300px"><option value="">Near: any location</option></select>
+            <label class="sr-only" for="sortBy">Sort by</label>
+            <select id="sortBy" style="max-width:190px">
+              <option value="match">Sort: best match</option>
+              <option value="distance">Sort: nearest</option>
+              <option value="rating">Sort: highest rated</option>
+            </select>
+            <label class="check small"><input type="checkbox" id="coversOnly" checked> Only those who travel there</label>
+            <div class="grow"></div>
             <label class="search"><span class="sr-only">Search providers</span><span id="searchIcon"></span>
               <input type="search" id="providerSearch" placeholder="Search by name, city or skill"></label>
+          </div>
+          <div class="callout small hidden" id="nearNote" style="margin-bottom:14px"></div>
+          <div class="card hidden" id="providerMapCard" style="margin-bottom:16px;padding:12px">
+            <div class="map-panel" id="providerMap"></div>
+            <div class="small muted" style="margin-top:8px">Blue dot = your vehicle · green = caretakers who travel there · grey = outside their area. Circles show each caretaker's service area.</div>
           </div>
           <div class="grid grid-3" id="providerGrid"><div class="loading">Loading…</div></div>
         </section>
@@ -130,8 +145,11 @@
     </form>
   </dialog>
 
+  <script src="/vendor/leaflet/leaflet.js"></script>
   <script src="/js/api.js"></script>
   <script src="/js/app.js"></script>
+  <script src="/js/map.js"></script>
+  <script src="/js/reviews.js"></script>
   <script src="/js/services.js"></script>
 </body>
 </html>

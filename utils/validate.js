@@ -68,6 +68,14 @@ function validate(body, rules, options = {}) {
         value = n;
         break;
       }
+      case 'number': {
+        const n = Number(value);
+        if (!Number.isFinite(n)) errors[field] = `${label} must be a number.`;
+        else if (rule.min !== undefined && n < rule.min) errors[field] = `${label} must be at least ${rule.min}.`;
+        else if (rule.max !== undefined && n > rule.max) errors[field] = `${label} must be at most ${rule.max}.`;
+        value = Math.round(n * 1e6) / 1e6;
+        break;
+      }
       case 'money': {
         const n = Number(value);
         if (!Number.isFinite(n) || n < 0) errors[field] = `${label} must be a positive amount.`;

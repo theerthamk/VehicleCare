@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1746b0">
+  <title>AI Assistant · VehicleCare</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <main class="content" id="content" hidden>
+        <div class="page-head">
+          <div>
+            <h1>AI Assistant</h1>
+            <p id="intro">Ask anything about looking after your vehicles. The assistant knows your vehicles, tasks and history.</p>
+          </div>
+          <div class="actions">
+            <span id="aiStatus"></span>
+            <button type="button" class="btn btn-ghost btn-sm" id="clearBtn">Clear chat</button>
+          </div>
+        </div>
+
+        <section class="card chat">
+          <div class="card-head" id="contextBar">
+            <label for="vehicleSelect" class="small muted">Focus on</label>
+            <select id="vehicleSelect" style="max-width:320px"><option value="">All my vehicles</option></select>
+          </div>
+          <div class="chat-log" id="log" aria-live="polite"></div>
+          <form class="chat-input" id="chatForm">
+            <label class="sr-only" for="message">Your question</label>
+            <textarea id="message" name="message" maxlength="1000" placeholder="e.g. My car has been parked for 2 months. What should I check first?" required></textarea>
+            <button type="submit" class="btn btn-primary" data-icon="send">Ask</button>
+          </form>
+        </section>
+      </main>
+    </div>
+  </div>
+  <script src="/js/api.js"></script>
+  <script src="/js/app.js"></script>
+  <script src="/js/assistant.js"></script>
+</body>
+</html>

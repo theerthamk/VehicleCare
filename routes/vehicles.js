@@ -5,6 +5,9 @@ const { pool } = require('../config/db');
 const { requireRole } = require('../middleware/roles');
 const { asyncHandler, HttpError, parseId } = require('../utils/http');
 const { validate, today } = require('../utils/validate');
+const { coordRules, checkCoordPair } = require('../utils/geo');
+const { withHealth } = require('../services/vehicleInsights');
+const photoStore = require('../services/photoStore');
 
 const router = express.Router();
 
@@ -20,11 +23,13 @@ const vehicleRules = {
   status: { type: 'enum', required: true, values: VEHICLE_STATUSES, label: 'Status' },
   parked_since: { type: 'date', label: 'Parked since' },
   location: { type: 'string', max: 150, label: 'Location' },
-  notes: { type: 'string', max: 500, label: 'Notes' }
+  notes: { type: 'string', max: 500, label: 'Notes' },
+  ...coordRules
 };
 
 function cleanVehicle(body) {
   const data = validate(body, vehicleRules);
+  checkCoordPair(data);
   data.registration_number = data.registration_number.toUpperCase().replace(/\s+/g, ' ');
   if (data.parked_since && data.parked_since > today()) {
     throw new HttpError(400, 'Parked since cannot be in the future.', { parked_since: 'Cannot be in the future.' });
@@ -58,7 +63,7 @@ const OWNER_LIST_SQL = `
 
 const CARETAKER_LIST_SQL = `
   SELECT v.id, v.make, v.model, v.year, v.registration_number, v.vehicle_type, v.status,
-         v.parked_since, v.location, v.notes, u.full_name AS owner_name, u.phone AS owner_phone,
+         v.parked_since, v.location, v.notes, v.latitude, v.longitude, u.full_name AS owner_name, u.phone AS owner_phone,
     (SELECT COUNT(*) FROM maintenance_tasks t
        WHERE t.vehicle_id = v.id AND t.assigned_to = ? AND t.status IN ('pending', 'in_progress')) AS open_tasks,
     (SELECT MIN(t.due_date) FROM maintenance_tasks t
@@ -89,7 +94,7 @@ router.get('/', asyncHandler(async (req, res) => {
   sql += ' ORDER BY v.created_at DESC, v.id DESC';
 
   const [rows] = await pool.execute(sql, params);
-  res.json({ vehicles: rows });
+  res.json({ vehicles: await withHealth(rows) });
 }));
 
 router.get('/:id', asyncHandler(async (req, res) => {
@@ -99,7 +104,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
     ? await pool.execute(`${OWNER_LIST_SQL} AND v.id = ?`, [id, vehicleId])
     : await pool.execute(`${CARETAKER_LIST_SQL} AND v.id = ?`, [id, id, id, vehicleId]);
   if (!rows.length) throw new HttpError(404, 'Vehicle not found.');
-  res.json({ vehicle: rows[0] });
+  res.json({ vehicle: (await withHealth(rows))[0] });
 }));
 
 router.post('/', requireRole('owner'), asyncHandler(async (req, res) => {
@@ -108,10 +113,10 @@ router.post('/', requireRole('owner'), asyncHandler(async (req, res) => {
   try {
     [result] = await pool.execute(
       `INSERT INTO vehicles (owner_id, make, model, year, registration_number, vehicle_type,
-         status, parked_since, location, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         status, parked_since, location, notes, latitude, longitude)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [req.session.user.id, data.make, data.model, data.year, data.registration_number,
-        data.vehicle_type, data.status, data.parked_since, data.location, data.notes]
+        data.vehicle_type, data.status, data.parked_since, data.location, data.notes, data.latitude, data.longitude]
     );
   } catch (err) {
     throw duplicateRegistration(err);
@@ -127,10 +132,10 @@ router.put('/:id', requireRole('owner'), asyncHandler(async (req, res) => {
   try {
     [result] = await pool.execute(
       `UPDATE vehicles SET make = ?, model = ?, year = ?, registration_number = ?, vehicle_type = ?,
-         status = ?, parked_since = ?, location = ?, notes = ?
+         status = ?, parked_since = ?, location = ?, notes = ?, latitude = ?, longitude = ?
        WHERE id = ? AND owner_id = ?`,
       [data.make, data.model, data.year, data.registration_number, data.vehicle_type,
-        data.status, data.parked_since, data.location, data.notes, vehicleId, req.session.user.id]
+        data.status, data.parked_since, data.location, data.notes, data.latitude, data.longitude, vehicleId, req.session.user.id]
     );
   } catch (err) {
     throw duplicateRegistration(err);
@@ -142,12 +147,21 @@ router.put('/:id', requireRole('owner'), asyncHandler(async (req, res) => {
 
 router.delete('/:id', requireRole('owner'), asyncHandler(async (req, res) => {
   const vehicleId = parseId(req.params.id, 'vehicle id');
-  // Tasks, records and requests for the vehicle are removed by ON DELETE CASCADE.
+  // Tasks, records, photos, jobs and requests are removed by ON DELETE CASCADE;
+  // the photo files on disk are deleted after the rows are gone.
+  const [photos] = await pool.execute(
+    `SELECT p.file_name FROM record_photos p
+     JOIN maintenance_records r ON r.id = p.record_id
+     JOIN vehicles v ON v.id = r.vehicle_id
+     WHERE v.id = ? AND v.owner_id = ?`,
+    [vehicleId, req.session.user.id]
+  );
   const [result] = await pool.execute(
     'DELETE FROM vehicles WHERE id = ? AND owner_id = ?',
     [vehicleId, req.session.user.id]
   );
   if (result.affectedRows === 0) throw new HttpError(404, 'Vehicle not found.');
+  photoStore.removeFiles(photos.map((p) => p.file_name));
   res.json({ ok: true });
 }));
 

@@ -10,7 +10,8 @@
     "db:init": "node scripts/init-db.js",
     "db:seed": "node scripts/seed.js",
     "check": "node scripts/check.js",
-    "test:smoke": "node tests/smoke.js"
+    "test:smoke": "node tests/smoke.js",
+    "test:features": "node tests/features.js"
   },
   "engines": {
     "node": ">=18"
@@ -22,6 +23,7 @@
     "express-rate-limit": "^7.5.0",
     "express-session": "^1.18.1",
     "helmet": "^8.0.0",
+    "leaflet": "^1.9.4",
     "mysql2": "^3.12.0"
   }
 }

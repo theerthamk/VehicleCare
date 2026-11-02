@@ -8,6 +8,7 @@
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" href="/icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
@@ -26,6 +27,8 @@
         <div class="card card-body hidden" id="welcome" style="margin-bottom:18px;border-color:var(--blue-200);background:var(--blue-50)">
           <strong>Welcome to VehicleCare!</strong> Add your city, phone and skills so vehicle owners can find you in the provider directory.
         </div>
+
+        <section class="card card-body caretaker-only hidden" id="ratingCard" style="max-width:760px;margin-bottom:18px"></section>
 
         <section class="card" style="max-width:760px">
           <form id="profileForm">
@@ -62,6 +65,24 @@
                   <textarea id="pBio" name="bio" maxlength="500" placeholder="Experience, areas you cover, availability…"></textarea>
                   <div class="field-error"></div>
                 </div>
+                <div class="field full caretaker-only hidden">
+                  <label for="pRadius">Service area <span class="muted small">(where you are based and how far you travel)</span></label>
+                  <div id="areaMap"></div>
+                  <div style="display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap">
+                    <span class="small">I travel up to</span>
+                    <select id="pRadius" name="service_radius_km" style="max-width:140px">
+                      <option value="5">5 km</option>
+                      <option value="10">10 km</option>
+                      <option value="15">15 km</option>
+                      <option value="20">20 km</option>
+                      <option value="30">30 km</option>
+                      <option value="50">50 km</option>
+                      <option value="100">100 km</option>
+                    </select>
+                    <span class="small muted">Owners and job posts inside this circle can find you.</span>
+                  </div>
+                  <div class="field-error"></div>
+                </div>
               </div>
             </div>
             <div class="dialog-foot" style="border-radius:0 0 12px 12px">
@@ -72,8 +93,11 @@
       </main>
     </div>
   </div>
+  <script src="/vendor/leaflet/leaflet.js"></script>
   <script src="/js/api.js"></script>
   <script src="/js/app.js"></script>
+  <script src="/js/map.js"></script>
+  <script src="/js/reviews.js"></script>
   <script src="/js/profile.js"></script>
 </body>
 </html>

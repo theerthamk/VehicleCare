@@ -39,7 +39,8 @@ function buildFilters(req) {
 router.get('/history', asyncHandler(async (req, res) => {
   const { where, params } = buildFilters(req);
   const [records] = await pool.execute(
-    `SELECT r.id, r.vehicle_id, r.task_id, r.record_type, r.service_date, r.notes, r.cost,
+    `SELECT r.id, r.vehicle_id, r.task_id, r.record_type, r.service_date, r.notes, r.cost, r.ai_condition,
+            (SELECT COUNT(*) FROM record_photos p WHERE p.record_id = r.id) AS photo_count,
             v.make, v.model, v.registration_number,
             t.title AS task_title, u.full_name AS performed_by_name
      FROM maintenance_records r
